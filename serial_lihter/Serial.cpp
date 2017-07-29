@@ -99,26 +99,68 @@ string SendHTTPReq(string headers) {
 
 }
 
+//________________________CALLBACKS___________________________________
+
+void OnStateChange() {
+	SerialPrint("1");
+	system("start chrome.exe http://www.radioroks.ua/player/");
+}
+
+void OffStateChange() {
+	SerialPrint("0");
+	system("taskkill /f /im chrome.exe");
+}
+
+void OnExit() {
+	cout << "exit" << endl;
+	stringstream header;
+	header << "GET /main/serial?set_led=off HTTP/1.1\r\n"
+		<< "Host: relaxmusic.esy.es\r\n"
+		<< "\r\n\r\n";
+
+	SendHTTPReq(header.str());
+
+	SerialDistruct();
+	WSACleanup();
+	exit(0);
+}
+
 
 int main() {
 	setlocale(LC_ALL, "ru");
 	SerialInit();
 	WsaInit();
+
+	SetConsoleCtrlHandler((PHANDLER_ROUTINE) OnExit,TRUE);
+
 	stringstream ss;
 	ss << "GET /main/serial HTTP/1.1\r\n"
 		<< "Host: relaxmusic.esy.es\r\n"
 		<< "\r\n\r\n";
-
+	string old = "on";
 	while (true) {
 		string resp = SendHTTPReq(ss.str());
+		string now;
 		if (resp.find("off") != string::npos) { 
-			cout << "off найден" << endl;
-			SerialPrint("0");
+			//cout << "off найден" << endl;
+			now = "off";
 		} 
 		else if (resp.find("on") != string::npos) {
-			cout << "on найден" << endl;
-			SerialPrint("1");
+			//cout << "on найден" << endl;
+			now = "on";
 		}
+
+		//cout << "now is " << now << " old is " << old << endl;
+
+		if (now == "on" && old == "off") {
+			cout << "on" << endl;
+			OnStateChange();
+		}else if (now == "off" && old == "on") {
+			cout << "off" << endl;
+			OffStateChange();
+		}
+
+		old = now;
 		
 		Sleep(500);
 	}
